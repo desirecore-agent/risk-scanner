@@ -123,7 +123,7 @@ M5 合并    按 dedup_group 合并同组同条款；全部检查项写进覆盖
 **不校验就开工，等于在一个不成立的对象上做风险评分。**
 
 1. 读上游 `clause-extractor` 的 `handoff` 块与 `artifact_path` 指向的抽取产物。
-2. 校验 `upstream.verdict ∈ {pass, conditional_pass}`。为 `reject` 时**立即停止**，
+2. 校验 `upstream.verdict ∈ {passed, conditional}`。为 `blocked` 时**立即停止**，
    不读材料、不出清单、不交接，回报组长「上游已阻断，风险判读不启动」。
 3. **原样承接**以下字段，逐字复制到自己的产物，**不重新校验、不改写、不推翻**：
    - `frozen_baseline`（`master_version` / `attachment_manifest_digest` / `page_range` / `execution_status`）
@@ -146,7 +146,7 @@ scope_lock:
   parts_not_delivered: ['attachment:附件一', 'attachment:附件三']
   party_role: client            # client | supplier | employer | employee | unknown
   party_role_source: upstream_handoff   # upstream_handoff | user_input | unknown
-  upstream_verdict: conditional_pass
+  upstream_verdict: conditional
   consistency_conclusion_allowed: false
 ```
 
@@ -639,7 +639,7 @@ risk_scan:
     extraction_id: EXTRACT-20260331-4b81ce07
     artifact_path: /abs/path/.../EXTRACT-20260331-4b81ce07.extraction.yaml
     intake_receipt_path: /abs/path/.../INTAKE-20260331-7f3a2c9b.receipt.yaml
-    verdict: conditional_pass
+    verdict: conditional
     frozen_baseline: {...}                # 逐字复制
     consistency_conclusion_allowed: false # 原样透传
 
@@ -780,7 +780,7 @@ handoff:
 
 **启动与边界**
 
-- [ ] 上游 `handoff` 存在，`verdict` ∈ {`pass`, `conditional_pass`}，未在 `reject` 下启动
+- [ ] 上游 `handoff` 存在，`verdict` ∈ {`passed`, `conditional`}，未在 `blocked` 下启动
 - [ ] `frozen_baseline` 原样携带，未改写、未重新校验、未推翻
 - [ ] 只扫了 `parts_in_scope` 列出的部件，未送达部件对应项写了 `not_covered`
 - [ ] `consistency_conclusion_allowed: false` 时，全文没有出现「一致」「无差异」「差异为 0」
