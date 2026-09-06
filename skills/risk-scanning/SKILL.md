@@ -9,7 +9,7 @@ description: >-
   续约通知期、竞业期限、数据导出、企业红线时使用。
   Use when scanning an extracted contract for risk: lexicon triggers with false-positive
   suppression, nine missing-clause checks, four market benchmarks and enabled custom redlines.
-version: 1.0.0
+version: 1.0.1
 type: procedural
 risk_level: low
 status: enabled
@@ -30,8 +30,8 @@ requires:
     - GenerateUUID
 metadata:
   author: DesireCore
-  version: 1.0.0
-  updated_at: '2026-08-31'
+  version: 1.0.1
+  updated_at: '2026-09-07'
 ---
 
 # 合同风险判读
@@ -49,6 +49,8 @@ metadata:
    要素判不了、对等性判不了，不是指检索不充分——检索不充分写 `blank` 并给出检索范围。
 4. **没检查到就显式留白。**覆盖矩阵里每一项都必须有状态；`blank` 与 `blocked` 单列，禁止计入通过率。
 5. **不越界。**法律效力属 `jurisdiction-auditor`；版本方向、评分与最终动作属 `review-reporter`。
+6. **结构化产物必须先通过 YAML 序列化闸门，再发送交接。**机器消费的风险产物与回执必须使用可解析的 YAML；产物中**禁止使用 `{...}` 内联 flow map 和非空 `[...]` flow sequence**，全部改写为块式映射和序列；无项列表可以写成 `[]`。若标量包含 `[`、`]`、`{`、`}`、`:`、`#`、`,`、换行或会被 YAML 解释为布尔/数字/null 的内容，必须使用单引号或双引号；`reason_ref`、路径、哈希、ID 和 evidence quote 一律按此规则处理。代码样例中的未引用路径只表示语义，不得原样复制成 flow map 标量。
+7. **写入后必须完整回读并自检。**`Write` 结束后立即用 `Read` 读取整个文件；若运行时提供 YAML 解析工具/技能，必须调用它验证根键、必需字段和括号/缩进。若当前运行时没有可调用的 YAML 解析器，必须采取保守路径：只允许使用本技能的块式模板、逐行检查缩进与引号，并返回 `yaml_parse: unavailable`，**不得声称 `yaml_parse: passed` 或发送成功 handoff**。任一解析/结构检查失败时不得发送 `SendMessage`，必须用 `Edit` 修复、再次完整回读和检查，直到通过；无法修复时返回 `REJECT-RISK-YAML` 并停止 handoff。
 
 ---
 
@@ -142,8 +144,12 @@ M5 合并    按 dedup_group 合并同组同条款；全部检查项写进覆盖
 
 ```yaml
 scope_lock:
-  parts_in_scope: [body, 'attachment:附件二']
-  parts_not_delivered: ['attachment:附件一', 'attachment:附件三']
+  parts_in_scope:
+    - body
+    - 'attachment:附件二'
+  parts_not_delivered:
+    - 'attachment:附件一'
+    - 'attachment:附件三'
   party_role: client            # client | supplier | employer | employee | unknown
   party_role_source: upstream_handoff   # upstream_handoff | user_input | unknown
   upstream_verdict: conditional
@@ -169,7 +175,9 @@ criteria_loaded:
   lexicon:
     pack_version: lexicon-v1
     entries_enabled: 29
-    language_files: [triggers-zh.yaml, triggers-en.yaml]
+    language_files:
+      - triggers-zh.yaml
+      - triggers-en.yaml
     matched_language: zh          # 按合同主要语言选主文件；双语合同两份都跑
   base:
     pack_version: base-v1
@@ -182,7 +190,7 @@ criteria_loaded:
     mandatory_floor_conflicts: []
 
 version_matrix:
-  skill_version: risk-scanning@1.0.0
+  skill_version: risk-scanning@1.0.1
   server_version: <运行时读取>
   knowledge_base_version: '2026-08-31'
   jurisdiction_pack_version: <承自上游；本 Agent 不加载法域包，仅登记>
@@ -230,8 +238,15 @@ missing_clause_findings:
     verdict: present_complete
     conclusion: pass
     clause_no: '10.1'
-    evidence: {part: body, page: 8, quote: "不超过索赔事件发生前 12 个月内甲方实际支付的服务费用总额"}
-    elements_present: [上限金额或计算方式, 计算基数与期间, 双方对等, 例外事项清单]
+    evidence:
+      part: body
+      page: 8
+      quote: "不超过索赔事件发生前 12 个月内甲方实际支付的服务费用总额"
+    elements_present:
+      - 上限金额或计算方式
+      - 计算基数与期间
+      - 双方对等
+      - 例外事项清单
     elements_missing: []
     action: null
     benchmark_handoff: liability-cap-months     # 转 R4 做数值判定
@@ -240,9 +255,21 @@ missing_clause_findings:
     conclusion: severe
     clause_no: not_present
     search_performed:
-      scope: {body: "1-9"}
-      patterns: [争议解决, 仲裁, 管辖, 诉讼, 仲裁委员会, arbitration, jurisdiction]
-    evidence: {part: body, page: null, quote: null, locator: "/abs/path/C03.md 第十四条仅约定适用法律"}
+      scope:
+        body: '1-9'
+      patterns:
+        - 争议解决
+        - 仲裁
+        - 管辖
+        - 诉讼
+        - 仲裁委员会
+        - arbitration
+        - jurisdiction
+    evidence:
+      part: body
+      page: null
+      quote: null
+      locator: '/abs/path/C03.md 第十四条仅约定适用法律'
     action: 先谈判
     human_gate: HG-02
     note: 「有适用法律」不等于「有争议解决机制」——准据法与争议解决须分别判断存在性
@@ -291,30 +318,49 @@ step_4 比档位   与该标尺的 deviation_signals 比对，落入哪一档就
 ```yaml
 benchmark_findings:
   - benchmark_id: liability-cap-months
-    actual: {value: 3, unit: 月, basis: 受影响 SOW 前 3 个月已付费用}
-    reference: {value: 12, unit: 月}
+    actual:
+      value: 3
+      unit: 月
+      basis: 受影响 SOW 前 3 个月已付费用
+    reference:
+      value: 12
+      unit: 月
     gap: 低于基准 9 个月
     symmetry: mutual                 # mutual | one_sided | unknown
     risk_level: high
     conclusion: severe
     clause_no: '9.1'
-    evidence: {part: body, page: 6, quote: "shall not exceed the total charges actually paid by Client under the affected SOW during the three (3) months immediately preceding the event giving rise to the claim"}
+    evidence:
+      part: body
+      page: 6
+      quote: "shall not exceed the total charges actually paid by Client under the affected SOW during the three (3) months immediately preceding the event giving rise to the claim"
     action: 先谈判
     human_gate: HG-03
     normalization_note: 英文拼写数字 three (3) 取括号内阿拉伯数字；计算基数为单个 SOW 而非全合同，已在 basis 中注明
   - benchmark_id: renewal-notice-days
-    actual: {value: 90, unit: 天}
-    reference: {value: 90, unit: 天}
+    actual:
+      value: 90
+      unit: 天
+    reference:
+      value: 90
+      unit: 天
     gap: 等于基准值
     symmetry: mutual
     risk_level: aligned
     conclusion: pass
     clause_no: '3.2'
-    evidence: {part: body, page: 3, quote: "任何一方在订阅期届满前 90 日以书面形式通知对方不再续约的除外"}
+    evidence:
+      part: body
+      page: 3
+      quote: "任何一方在订阅期届满前 90 日以书面形式通知对方不再续约的除外"
     action: null
   - benchmark_id: non-compete-years
     actual: null
-    reference: {range: [1, 2], unit: 年}
+    reference:
+      range:
+        - 1
+        - 2
+      unit: 年
     gap: null
     conclusion: unknown
     unknown_reason: 本合同为 B2B 服务协议，无离职后竞业限制条款，本标尺不适用
@@ -339,8 +385,14 @@ benchmark_findings:
 - id: CAND-07
   trigger_id: rt-auto-renewal-silent
   clause_no: '3.2'
-  matched_by: {kind: pattern, expr: '自动(续约|续期|展期|延长|顺延)', hit: '自动续约'}
-  evidence: {part: body, page: 3, quote: "订阅期届满前，本协议自动续约 12 个月，但任何一方在订阅期届满前 90 日以书面形式通知对方不再续约的除外"}
+  matched_by:
+    kind: pattern
+    expr: '自动(续约|续期|展期|延长|顺延)'
+    hit: '自动续约'
+  evidence:
+    part: body
+    page: 3
+    quote: "订阅期届满前，本协议自动续约 12 个月，但任何一方在订阅期届满前 90 日以书面形式通知对方不再续约的除外"
 ```
 
 **匹配范围收敛**：条目的 `clause_categories` 与条款的 `category` 不相交时可跳过该条款，
@@ -363,9 +415,12 @@ suppressed:
   - id: SUPP-03
     trigger_id: rt-joint-several-liability
     clause_no: '13.2'
-    evidence: {part: body, page: 9, quote: "经甲方同意的分包不免除乙方责任，乙方对分包方的行为向甲方承担连带责任"}
+    evidence:
+      part: body
+      page: 9
+      quote: "经甲方同意的分包不免除乙方责任，乙方对分包方的行为向甲方承担连带责任"
     reason_kind: counter_example
-    reason_ref: rt-joint-several-liability.counter_examples[0]   # 分包责任不免除
+    reason_ref: 'rt-joint-several-liability.counter_examples[0]'   # 分包责任不免除
     reason: 该表述是 missing-clauses.yaml#subcontracting 要求的「分包方行为的责任归属」要素，
       属条款齐备的标志，方向对采购方有利；承担方是乙方而非己方
 ```
@@ -414,7 +469,7 @@ suppressed:
 ### `benchmark_compare` —— 必须先比标尺
 
 结论**以 R4 的比对结果为准**，本条目不另出一条发现，只在覆盖矩阵中交叉引用
-（`resolved_by: benchmark_findings[<benchmark_id>]`）。数值抽不到时判 `unknown`。
+（`resolved_by` 写成字符串 `'benchmark_findings[<benchmark_id>]'`）。数值抽不到时判 `unknown`。
 
 ### `defer_to_jurisdiction` —— 只登记，不下结论
 
@@ -429,9 +484,24 @@ deferred_to_jurisdiction:
     statement: 试用期 12 个月（2026-05-06 至 2027-05-05），合同期限 3 年，
       另约定考核不合格可再延长 3 个月
     facts:
-      - {name: 合同期限, value: 3 年, evidence: {part: body, page: 1, quote: "本合同为固定期限劳动合同，期限 3 年"}}
-      - {name: 试用期, value: 12 个月, evidence: {part: body, page: 1, quote: "1.2 试用期为 12 个月，自 2026 年 5 月 6 日起至 2027 年 5 月 5 日止。"}}
-      - {name: 可延长, value: 3 个月, evidence: {part: body, page: 1, quote: "考核不合格的，甲方可延长试用期 3 个月或解除本合同"}}
+      - name: 合同期限
+        value: 3 年
+        evidence:
+          part: body
+          page: 1
+          quote: "本合同为固定期限劳动合同，期限 3 年"
+      - name: 试用期
+        value: 12 个月
+        evidence:
+          part: body
+          page: 1
+          quote: "1.2 试用期为 12 个月，自 2026 年 5 月 6 日起至 2027 年 5 月 5 日止。"
+      - name: 可延长
+        value: 3 个月
+        evidence:
+          part: body
+          page: 1
+          quote: "考核不合格的，甲方可延长试用期 3 个月或解除本合同"
     required_downstream_action: 由 jurisdiction-auditor 按对应法域的试用期规则判定
     forbidden_here: 本 Agent 不写「超出法定上限」「超限一倍」——那是法域合规的结论
 ```
@@ -448,7 +518,10 @@ comparables:
     name: 月度可用性承诺
     value: '99.0%'
     clause_no: '2.1'
-    evidence: {part: 'attachment:附件二', page: 1, quote: "2.1 乙方承诺服务的月度可用性不低于 **99.0%**。"}
+    evidence:
+      part: 'attachment:附件二'
+      page: 1
+      quote: "2.1 乙方承诺服务的月度可用性不低于 **99.0%**。"
     direction_judged: false     # 恒为 false——方向属 review-reporter 的 compare_versions
 ```
 
@@ -457,7 +530,8 @@ comparables:
 ```yaml
 findings:
   - id: RISK-04
-    trigger_ids: [rt-data-export-restricted]
+    trigger_ids:
+      - rt-data-export-restricted
     category: ip_data_rights
     clause_no: '8.2'                      # ① 条款编号
     evidence:                             # ② 证据位置
@@ -466,13 +540,20 @@ findings:
       quote: "8.2 乙方不得以任何形式向甲方、甲方关联方或任何第三方导出、下载或交付个人数据的批量副本"
       locator: "/abs/path/C05-data-processing-agreement.md"
     additional_evidence:
-      - {part: body, page: 5, quote: "单次查询结果不得超过 200 条记录，且不提供导出功能"}
-      - {part: body, page: 5, quote: "乙方不提供任何形式的数据返还或导出。"}
+      - part: body
+        page: 5
+        quote: "单次查询结果不得超过 200 条记录，且不提供导出功能"
+      - part: body
+        page: 5
+        quote: "乙方不提供任何形式的数据返还或导出。"
     conclusion: severe                    # ③ 结论等级
     action: 先谈判                         # ④ 对应动作
     resolution_used: benchmark_compare
-    resolved_by: benchmark_findings[data-export-window-days]
-    benchmark_detail: {actual: 完全禁止导出, reference: 终止后 90 天 + 标准格式, gap: 最严重短板}
+    resolved_by: 'benchmark_findings[data-export-window-days]'
+    benchmark_detail:
+      actual: 完全禁止导出
+      reference: 终止后 90 天 + 标准格式
+      gap: 最严重短板
     symmetry: one_sided
     human_gate: null
     classification_note: 条款存在且内容为禁止性——记为「条款存在但方向不利」，
@@ -505,12 +586,19 @@ redline_findings:
   - redline_id: rl-liability-cap-floor
     enabled: true
     relation_to_base: overrides            # overrides | coexists
-    overrides: [base/market-benchmarks.yaml#liability-cap-months]
-    threshold: {min_months: 12}
-    actual: {value: 3, unit: 月}
+    overrides:
+      - 'base/market-benchmarks.yaml#liability-cap-months'
+    threshold:
+      min_months: 12
+    actual:
+      value: 3
+      unit: 月
     conclusion: severe
     clause_no: '9.1'
-    evidence: {part: body, page: 6, quote: "..."}
+    evidence:
+      part: body
+      page: 6
+      quote: "..."
     action: 先谈判
     human_gate: HG-03
     owner: <红线责任人>
@@ -540,7 +628,9 @@ coverage_matrix:
   - check_id: rt-joint-several-liability
     check_title: 连带责任
     source: risk-lexicon
-    source_location: {part: body, page: 9}
+    source_location:
+      part: body
+      page: 9
     conclusion: pass
     action: null
     owner_agent: risk-scanner
@@ -554,7 +644,15 @@ coverage_matrix:
     action: 先谈判
     owner_agent: risk-scanner
     status: covered
-    search_performed: {scope: {body: "1-11"}, patterns: [audit, inspection, right to examine, 审计, 稽核]}
+    search_performed:
+      scope:
+        body: '1-11'
+      patterns:
+        - audit
+        - inspection
+        - right to examine
+        - 审计
+        - 稽核
   - check_id: definitions@attachment:附件一
     check_title: 附件一定义术语
     source: upstream-blank
@@ -627,7 +725,7 @@ risk_scan:
   scan_id: RISKSCAN-20260331-9c4e17b2
   scanned_at: 2026-03-31T11:20:04+08:00
   executed_by: risk-scanner
-  skill: risk-scanning@1.0.0
+  skill: risk-scanning@1.0.1
   lexicon_pack_version: lexicon-v1
   base_pack_version: base-v1
   custom_pack_version: custom-v1
@@ -640,30 +738,48 @@ risk_scan:
     artifact_path: /abs/path/.../EXTRACT-20260331-4b81ce07.extraction.yaml
     intake_receipt_path: /abs/path/.../INTAKE-20260331-7f3a2c9b.receipt.yaml
     verdict: conditional
-    frozen_baseline: {...}                # 逐字复制
+    frozen_baseline:
+      # 逐字复制上游 frozen_baseline 的全部字段
     consistency_conclusion_allowed: false # 原样透传
 
-  object: {...}                           # 三元组，原样承自上游
+  object:
+    # 三元组，原样承自上游
 
-  scope_lock:   {...}                     # R1
-  criteria_loaded: {...}                  # R2
-  version_matrix: {...}                   # R2
+  scope_lock:
+    # R1
+  criteria_loaded:
+    # R2
+  version_matrix:
+    # R2
 
-  missing_clause_findings: [...]          # R3（9 项，一项不落）
-  benchmark_findings:      [...]          # R4（4 条，一条不落）
-  candidates:              [...]          # R5 M1
-  suppressed:              [...]          # R5 M2（必须留痕）
-  findings:                [...]          # R6 M4（结论四元组齐备）
-  deferred_to_jurisdiction:[...]          # R6
-  comparables:             [...]          # R6
-  redline_findings:        [...]          # R7（仅已启用）
+  missing_clause_findings:
+    # R3（9 项，一项不落）
+  benchmark_findings:
+    # R4（4 条，一条不落）
+  candidates:
+    # R5 M1
+  suppressed:
+    # R5 M2（必须留痕）
+  findings:
+    # R6 M4（结论四元组齐备）
+  deferred_to_jurisdiction:
+    # R6
+  comparables:
+    # R6
+  redline_findings:
+    # R7（仅已启用）
 
-  coverage_matrix: [...]                  # R8.2（全部检查项）
-  human_gate_triggers: [...]              # R8.3（只标不确认）
-  failure_marks:   [...]
-  stats: {...}                            # R8.4
+  coverage_matrix:
+    # R8.2（全部检查项）
+  human_gate_triggers:
+    # R8.3（只标不确认）
+  failure_marks:
+    # 结构化失败标记
+  stats:
+    # R8.4
 
-  handoff: {...}                          # 见下节
+  handoff:
+    # 见下节
 ```
 
 ---
@@ -696,7 +812,8 @@ risk_scan:
 
 ```yaml
 handoff:
-  to: [contract-review-lead]
+  to:
+    - contract-review-lead
   from: risk-scanner
   scan_id: RISKSCAN-20260331-9c4e17b2
   artifact_path: /abs/path/.../RISKSCAN-20260331-9c4e17b2.risk.yaml
@@ -727,7 +844,10 @@ handoff:
         **不得据此判定两版一致**
       required_downstream_action: 对附件二正文做实质条款对比，并给出风险变化方向（上升 / 下调 / 持平）
       resolution_evidence:
-        comparables_extracted: [CMP-01, CMP-02, CMP-03]
+        comparables_extracted:
+          - CMP-01
+          - CMP-02
+          - CMP-03
         note: 已抽出可用性承诺、补偿档位、申请窗口三类可比数值；方向未表态，仍待下游判定
     # ② 本 Agent 新增的待确认项，用 PEND-RISK-* 编号以示区分
     - id: PEND-RISK-01
@@ -754,14 +874,17 @@ handoff:
       - 法律效力判定与法域冲突（属 jurisdiction-auditor）
       - 版本对比与风险变化方向（属 review-reporter 的 compare_versions）
       - 评分、五档阈值映射、最终动作建议与 Human Gate 确认（属 review-reporter 与人）
-    frozen_baseline: {...}                # 原样承自上游，未改写
+    frozen_baseline:
+      # 原样承自上游，未改写
     consistency_conclusion_allowed: false # 原样透传
     coverage_summary:
       covered: 40
       blank: 2                            # 显式欠账，禁止按通过计
       blocked: 0
       not_applicable: 6
-    human_gate_triggers: [HG-01, HG-03]   # 只标不确认
+    human_gate_triggers:
+      - HG-01
+      - HG-03
 
   do_not_pass:                            # 我没传、你也不要来取
     - 对话历史
@@ -798,7 +921,7 @@ handoff:
 **结论四元组（缺任一项该条不合格）**
 
 - [ ] 每条 `findings` 都有 `clause_no`、`evidence.page`、`conclusion`、`action` 四项
-- [ ] 每个 `evidence` 都是 `{part, page, quote}` 三件套，`part` 与 `frozen_baseline.page_range` 的键逐字一致
+- [ ] 每个 `evidence` 都包含 `part`、`page`、`quote` 三件套，`part` 与 `frozen_baseline.page_range` 的键逐字一致
 - [ ] 每个 `quote` 都是逐字原文，能在源文件中按固定字符串 grep 到
 - [ ] 页码不可得的条款进了 `failure_marks`，没有以 `page: null` 混入正常发现
 - [ ] `conclusion` 只用了 `severe` / `important` / `advisory` / `pass` / `unknown`，
@@ -845,3 +968,5 @@ handoff:
 - [ ] 产物落盘用的是 `Ls` 实际确认过的绝对路径，没有写死用户主目录字面量
 - [ ] 旧产物未被覆盖，本次是新的 `scan_id`
 - [ ] 版本矩阵五个维度都已登记，缺失的写了 `unknown` 而不是省略
+- [ ] 最终文件未使用任何 `{...}` / `[...]` flow notation；含 YAML 语法字符的标量已引用
+- [ ] `Read` 完整回读后的 YAML 结构自检通过；有解析器时 `handoff.confirmed` 含 `yaml_parse: passed`，无解析器时含 `yaml_parse: unavailable` 且没有发送成功 handoff
