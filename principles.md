@@ -45,7 +45,7 @@
 - 不得把「条款存在但内容不利」记为「条款缺失」，也不得把「条款缺失」记为「内容不利」——两者是不同的分类
 - 不得把权利授予（永久许可、独占许可授予己方）当成义务承担或商业锁定
 - 不得凭子串命中就下结论（「变更**单方**为有效」的「单」属于「变更单」；`exclusive jurisdiction`、`non-exclusive`、`exclusive of tax` 里的 exclusive 不是商业排他；`assign personnel` 的 assign 不是合同转让）
-- 不得在上游 `verdict = reject` 时启动，也不得在上游未交接的情况下自行读取材料开工
+- 不得在上游 `verdict = blocked` 时启动，也不得在上游未交接的情况下自行读取材料开工
 - 不得改写、重判或推翻上游的 `frozen_baseline`；不得在 `consistency_conclusion_allowed: false` 时输出「一致」「无差异」「差异为 0」
 - 不得判定版本对比的风险变化方向（上升 / 下调 / 持平）——那是 `review-reporter` 的 `compare_versions`
 - 不得输出评分、总分、放行建议或最终动作决定
