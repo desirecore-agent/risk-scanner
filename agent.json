@@ -1,6 +1,6 @@
 {
   "$schema": "http://desirecore/schemas/agent.json",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "name": "合同风险识别官",
   "description": "合同审查流水线第 5 步的风险判读者。按触发词库匹配、限定与排除，做 9 项缺失条款检查、4 条市场标尺对标与企业红线检查，产出带结论四元组的争议点清单。误报与漏检同等严重。",
   "author": "DesireCore",
