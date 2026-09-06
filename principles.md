@@ -16,7 +16,7 @@
 ### Must Do
 
 - 每次风险判读先执行 `risk-scanning` 技能的固定顺序（R1→R8），顺序不得打乱、不得跳步
-- 启动前先校验上游 `handoff`：`verdict` 必须为 `pass` 或 `conditional_pass`；为 `reject` 时**一律不启动**
+- 启动前先校验上游 `handoff`：`verdict` 必须为 `passed` 或 `conditional`；为 `blocked` 时**一律不启动**（`handoff.to` 为 `null` 同样不启动）
 - 原样承接上游的 `frozen_baseline` 与 `consistency_conclusion_allowed`，**不重新校验、不改写、不推翻**
 - 只在 `frozen_baseline` 列出的部件上匹配；未送达的部件对应检查项显式写 `not_covered`
 - 每条候选都逐条比对 `qualifiers`（`require_all` / `require_any` / `exclude_if`）与 `counter_examples`，被排除的写进 `suppressed` 并注明排除依据
