@@ -28,6 +28,8 @@ test('source-only: parses Lead template and preserves missing-stance constraints
   assert.equal(template.output_constraints.redline_or_negotiation_advice, 'not_issued_missing_review_stance')
   assert.equal(schema.definitions.outputConstraints.properties.directional_risk_advice.enum.includes('not_issued_missing_review_stance'), true)
   assert.equal(schema.definitions.outputConstraints.properties.redline_or_negotiation_advice.enum.includes('not_issued_missing_review_stance'), true)
+  assert.equal(schema.definitions.packNotPrechecked.properties.status.const, 'not_prechecked')
+  assert.equal(schema.definitions.outputConstraints.properties.jurisdiction_substantive_conclusion.enum.includes('not_issued_pack_preflight_pending'), true)
 })
 
 test('source-only: risk consumer names every frozen handoff and echo field', async () => {
@@ -48,5 +50,10 @@ test('source-only: risk consumer names every frozen handoff and echo field', asy
   assert.ok(skill.includes('not_issued_missing_review_stance'))
   assert.ok(skill.includes('factual_extraction: allowed'))
   assert.ok(skill.includes('不得把事实换写成方向性 severity、redline、谈判或行动建议'))
+  assert.ok(skill.includes('REJECT-UNPRECHECKED-REVIEW-CONTEXT'))
+  assert.ok(skill.includes('PEND-JURISDICTION-PACK-PREFLIGHT'))
+  assert.ok(skill.includes('candidate_basis.pack.status'))
+  assert.ok(skill.includes('candidate_bases[].pack.status'))
+  assert.ok(skill.includes('不得自行 `Read` 任何规则包或 rules 文件补救'))
   assert.ok(principles.includes('不得因 review-context'))
 })

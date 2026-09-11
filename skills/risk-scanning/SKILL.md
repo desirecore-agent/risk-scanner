@@ -126,16 +126,17 @@ M5 合并    按 dedup_group 合并同组同条款；全部检查项写进覆盖
 
 1. 读上游 `clause-extractor` 的 `handoff` 块与 `artifact_path` 指向的抽取产物。
 2. 若这是 Team O3 交接，先要求并 `Read` 五个扁平 context 字段：`review_context_path`、`review_context_case_id`、`review_context_revision`、`review_context_current_manifest`、`review_context_output_constraints`。解析 Lead-owned context 后，逐项比较 `case_binding.case_id`、`revision`、`case_binding.current_contract_manifest` 与完整 `output_constraints`；只接受完全相等的快照。context 仅声明业务审查范围，不是平台身份、代表权、文件/工具授权或 Human Gate 确认。缺字段、读取/解析失败或任一值不一致时停止并回报 `REJECT-STALE-REVIEW-CONTEXT`，不得用旧摘要、文件名或 Agent 自己填写的值降级。
-3. 独立用户请求没有 Team handoff 时，不得伪造上述五字段或 `review_context_echo`；仍可按本技能做原文事实提取与澄清，但不得把缺 context 说成平台未签发或任何授权事实。
-4. 校验 `upstream.verdict ∈ {passed, conditional}`。为 `blocked` 时**立即停止**，
+3. 若 `jurisdiction.status: candidate_basis` 的唯一 `candidate_basis.pack.status` 为 `not_prechecked`，或 `jurisdiction.status: conflicting` 的任一 `candidate_bases[].pack.status` 为 `not_prechecked`，这是 Lead 受限 O0 尚未授权预检的状态：原样保留 `PEND-JURISDICTION-PACK-PREFLIGHT` 与既有 `HG-02`（如有），立即返回失败诊断 `REJECT-UNPRECHECKED-REVIEW-CONTEXT`。不得自行 `Read` 任何规则包或 rules 文件补救，不得开始风险扫描、写成功回执、业务产物或交接，也不得把 `not_issued_pack_preflight_pending` 当作普通的输出抑制后继续运行。
+4. 独立用户请求没有 Team handoff 时，不得伪造上述五字段或 `review_context_echo`；仍可按本技能做原文事实提取与澄清，但不得把缺 context 说成平台未签发或任何授权事实。
+5. 校验 `upstream.verdict ∈ {passed, conditional}`。为 `blocked` 时**立即停止**，
    不读材料、不出清单、不交接，回报组长「上游已阻断，风险判读不启动」。
-5. **原样承接**以下字段，逐字复制到自己的产物，**不重新校验、不改写、不推翻**：
+6. **原样承接**以下字段，逐字复制到自己的产物，**不重新校验、不改写、不推翻**：
    - `frozen_baseline`（`master_version` / `attachment_manifest_digest` / `page_range` / `execution_status`）
    - `consistency_conclusion_allowed`（原样透传，不得置 `true`）
    - `object` 三元组（`contract_object_id` / `object_title` / `version_label` / `content_digest`）
-6. **锁定扫描范围**：只在 `frozen_baseline.page_range` 列出的部件上匹配。
+7. **锁定扫描范围**：只在 `frozen_baseline.page_range` 列出的部件上匹配。
    `scope.blank_fields` 与未送达部件对应的检查项一律写 `not_covered`，**不得凭正文引用推测附件内容**。
-7. **确认己方角色**（客户方 / 供应方 / 雇主方 / 劳动者方 / 未确认）。
+8. **确认己方角色**（客户方 / 供应方 / 雇主方 / 劳动者方 / 未确认）。
    角色来自上游交接或用户输入，**不得推测**。未确认时记录 `party_role: unknown`，
    后续所有方向敏感的条目一律输出 `unknown` 并写明原因。
 
