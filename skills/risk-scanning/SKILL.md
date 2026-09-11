@@ -125,15 +125,17 @@ M5 合并    按 dedup_group 合并同组同条款；全部检查项写进覆盖
 **不校验就开工，等于在一个不成立的对象上做风险评分。**
 
 1. 读上游 `clause-extractor` 的 `handoff` 块与 `artifact_path` 指向的抽取产物。
-2. 校验 `upstream.verdict ∈ {passed, conditional}`。为 `blocked` 时**立即停止**，
+2. 若这是 Team O3 交接，先要求并 `Read` 五个扁平 context 字段：`review_context_path`、`review_context_case_id`、`review_context_revision`、`review_context_current_manifest`、`review_context_output_constraints`。解析 Lead-owned context 后，逐项比较 `case_binding.case_id`、`revision`、`case_binding.current_contract_manifest` 与完整 `output_constraints`；只接受完全相等的快照。context 仅声明业务审查范围，不是平台身份、代表权、文件/工具授权或 Human Gate 确认。缺字段、读取/解析失败或任一值不一致时停止并回报 `REJECT-STALE-REVIEW-CONTEXT`，不得用旧摘要、文件名或 Agent 自己填写的值降级。
+3. 独立用户请求没有 Team handoff 时，不得伪造上述五字段或 `review_context_echo`；仍可按本技能做原文事实提取与澄清，但不得把缺 context 说成平台未签发或任何授权事实。
+4. 校验 `upstream.verdict ∈ {passed, conditional}`。为 `blocked` 时**立即停止**，
    不读材料、不出清单、不交接，回报组长「上游已阻断，风险判读不启动」。
-3. **原样承接**以下字段，逐字复制到自己的产物，**不重新校验、不改写、不推翻**：
+5. **原样承接**以下字段，逐字复制到自己的产物，**不重新校验、不改写、不推翻**：
    - `frozen_baseline`（`master_version` / `attachment_manifest_digest` / `page_range` / `execution_status`）
    - `consistency_conclusion_allowed`（原样透传，不得置 `true`）
    - `object` 三元组（`contract_object_id` / `object_title` / `version_label` / `content_digest`）
-4. **锁定扫描范围**：只在 `frozen_baseline.page_range` 列出的部件上匹配。
+6. **锁定扫描范围**：只在 `frozen_baseline.page_range` 列出的部件上匹配。
    `scope.blank_fields` 与未送达部件对应的检查项一律写 `not_covered`，**不得凭正文引用推测附件内容**。
-5. **确认己方角色**（客户方 / 供应方 / 雇主方 / 劳动者方 / 未确认）。
+7. **确认己方角色**（客户方 / 供应方 / 雇主方 / 劳动者方 / 未确认）。
    角色来自上游交接或用户输入，**不得推测**。未确认时记录 `party_role: unknown`，
    后续所有方向敏感的条目一律输出 `unknown` 并写明原因。
 
@@ -154,7 +156,22 @@ scope_lock:
   party_role_source: upstream_handoff   # upstream_handoff | user_input | unknown
   upstream_verdict: conditional
   consistency_conclusion_allowed: false
+  review_context:
+    case_id: case-20260911-001
+    revision: 2
+    current_manifest:
+      status: available
+      digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    output_constraints:
+      factual_extraction: allowed
+      directional_risk_advice: allowed
+      redline_or_negotiation_advice: allowed
+      jurisdiction_substantive_conclusion: allowed
 ```
+
+Team 路径必须把这份已核验的四字段 context 快照复制进最终 `review_context_echo`（见「产物完整结构」）；它永远不替代上游 object、frozen baseline 或 Human Gate 证据。
+
+若两个方向性 constraint 任一为 `not_issued_missing_review_stance`，它优先于 `party_role`、R3→R7 中的普通结论模板和任何词库 `recommended_action`：这些普通模板只适用于两个 constraint 都为 `allowed` 的 Team 路径。事实记录、quote、覆盖行与既有 Human Gate 触发事实仍必须保留，但不得把事实换写成方向性 severity、redline、谈判或行动建议。
 
 ---
 
@@ -452,6 +469,18 @@ suppressed:
 ## R6　判定路径分流与结论（M3 → M4）
 
 通过 M2 的候选按 `resolution` 分流。**只有前三类可以单独下结论。**
+
+### 方向性结论未签发时的事实路径
+
+当已核验的 Team context 把 `directional_risk_advice` 或 `redline_or_negotiation_advice` 写为
+`not_issued_missing_review_stance`，R1→R5、原文 quote、数值、要素、对等性和覆盖矩阵仍完整执行；
+这不是检索失败，也不应记成 `pass`、`unknown` 或 Human Gate 已满足。
+
+- `findings` 与 `redline_findings` 不得写方向性 `conclusion`、`action`、谈判建议或基于己方利益的 severity；将其置为空数组。
+- 将已提取的原文事实保留在 `candidates`、`missing_clause_findings`、`benchmark_findings` 与 `deferred_to_jurisdiction` 中；每条受约束记录写 `issuance: not_issued_missing_review_stance`，而非伪造结论四元组。
+- 产物顶层 `not_issued` 必须逐字记录两个 constraint 值及 Lead `pending` 的 `PEND-REVIEW-STANCE-REQUIRED`；它只说明本次未能发出该类输出，不说明用户身份、代表权、授权或 Gate 状态。
+
+`factual_extraction: allowed` 只保留事实抽取范围，绝不解除上述限制。
 
 ### `element_check` —— 按要素齐备性判定
 
@@ -769,6 +798,14 @@ risk_scan:
   redline_findings:
     # R7（仅已启用）
 
+  not_issued:
+    # 仅 Team context 限制方向性输出时存在；不是 unknown 或授权状态
+    directional_risk_advice: not_issued_missing_review_stance
+    redline_or_negotiation_advice: not_issued_missing_review_stance
+    pending:
+      - code: PEND-REVIEW-STANCE-REQUIRED
+        required_from: user
+
   coverage_matrix:
     # R8.2（全部检查项）
   human_gate_triggers:
@@ -777,6 +814,18 @@ risk_scan:
     # 结构化失败标记
   stats:
     # R8.4
+
+  review_context_echo:                 # 仅 Team O3 路径，独立用户请求不得伪造
+    case_id: case-20260911-001
+    revision: 2
+    current_manifest:                   # 与已 Read 的 handoff/context 快照完全相等
+      status: available
+      digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    actual_output_constraints:           # 四个完整约束字段，逐字回显
+      factual_extraction: allowed
+      directional_risk_advice: allowed
+      redline_or_negotiation_advice: allowed
+      jurisdiction_substantive_conclusion: allowed
 
   handoff:
     # 见下节

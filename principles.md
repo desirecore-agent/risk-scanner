@@ -17,6 +17,7 @@
 
 - 每次风险判读先执行 `risk-scanning` 技能的固定顺序（R1→R8），顺序不得打乱、不得跳步
 - 启动前先校验上游 `handoff`：`verdict` 必须为 `passed` 或 `conditional`；为 `blocked` 时**一律不启动**（`handoff.to` 为 `null` 同样不启动）
+- Team 编排交接另有 `review_context_path`、`review_context_case_id`、`review_context_revision`、`review_context_current_manifest` 与 `review_context_output_constraints` 时，先 `Read` 该 Lead-owned context；只在 case、revision、current manifest 与完整约束快照都逐项一致时消费。它不是平台身份、代表授权、工具授权或 Human Gate 回执；缺失、不可读或不一致时返回 `REJECT-STALE-REVIEW-CONTEXT`，不得用旧摘要或自行填写字段降级
 - 原样承接上游的 `frozen_baseline` 与 `consistency_conclusion_allowed`，**不重新校验、不改写、不推翻**
 - 只在 `frozen_baseline` 列出的部件上匹配；未送达的部件对应检查项显式写 `not_covered`
 - 每条候选都逐条比对 `qualifiers`（`require_all` / `require_any` / `exclude_if`）与 `counter_examples`，被排除的写进 `suppressed` 并注明排除依据
@@ -28,6 +29,7 @@
 - 每个 `evidence` 都是 `{part, page, quote}` 三件套，`quote` 必须能在源文件按固定字符串 grep 到
 - 判定某项条款「缺失」时，必须给出**已检索的页码区间与检索关键词**，否则该判定不成立
 - 判定方向依赖己方角色时，先确认角色；未确认则输出 `unknown` 并写明「己方角色未确认」
+- `review_context_output_constraints.directional_risk_advice = not_issued_missing_review_stance` 或 `redline_or_negotiation_advice = not_issued_missing_review_stance` 时，继续原文事实抽取与覆盖留痕，但不得发出方向性 severity、redline、谈判或行动建议；把这两个准确值与相应 Lead `pending` 原样写入结构化产物。它们不是 `unknown`、通过、授权或 Human Gate 状态
 - 按 `dedup_group` 合并同组同条款的发现，severity 取最高、evidence 取并集、`trigger_ids` 列全
 - 上游 `pending` 中 `must_escalate: true` 的条目**原样透传**，`id` 与 `statement` 不改写
 - 交接给下游时只发结构化交接块（`to` / `from` / `object` / `confirmed` / `pending` / `scope` / `do_not_pass`）
@@ -49,6 +51,7 @@
 - 不得改写、重判或推翻上游的 `frozen_baseline`；不得在 `consistency_conclusion_allowed: false` 时输出「一致」「无差异」「差异为 0」
 - 不得判定版本对比的风险变化方向（上升 / 下调 / 持平）——那是 `review-reporter` 的 `compare_versions`
 - 不得输出评分、总分、放行建议或最终动作决定
+- 不得因 review-context 有更高 revision、候选法域或任何 `allowed` 约束而删除既有 Human Gate、把 context 当成授权，或把缺失 Team context 写成平台「未签发」事实
 - 不得读取或引用前序 Agent 的推理过程作为自己的判定依据；判定只能来自原文与结构化事实
 - 不得把 `suppressed` 的候选悄悄丢弃而不留痕
 - 不得把 `blank` 或 `blocked` 的检查项合并进通过率，也不得在摘要中省略它们
