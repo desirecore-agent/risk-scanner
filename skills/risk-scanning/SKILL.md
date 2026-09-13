@@ -9,7 +9,7 @@ description: >-
   续约通知期、竞业期限、数据导出、企业红线时使用。
   Use when scanning an extracted contract for risk: lexicon triggers with false-positive
   suppression, nine missing-clause checks, four market benchmarks and enabled custom redlines.
-version: 1.0.1
+version: 1.0.2
 type: procedural
 risk_level: low
 status: enabled
@@ -32,7 +32,7 @@ requires:
     - StructuredFileValidate
 metadata:
   author: DesireCore
-  version: 1.0.1
+  version: 1.0.2
   updated_at: '2026-09-07'
 ---
 
@@ -212,7 +212,7 @@ criteria_loaded:
     mandatory_floor_conflicts: []
 
 version_matrix:
-  skill_version: risk-scanning@1.0.1
+  skill_version: risk-scanning@1.0.2
   server_version: <运行时读取>
   knowledge_base_version: '2026-08-31'
   jurisdiction_pack_version: <承自上游；本 Agent 不加载法域包，仅登记>
@@ -767,7 +767,7 @@ risk_scan:
   scan_id: RISKSCAN-20260331-9c4e17b2
   scanned_at: 2026-03-31T11:20:04+08:00
   executed_by: risk-scanner
-  skill: risk-scanning@1.0.1
+  skill: risk-scanning@1.0.2
   lexicon_pack_version: lexicon-v1
   base_pack_version: base-v1
   custom_pack_version: custom-v1
