@@ -87,6 +87,8 @@ metadata:
 | **发现** | `RISK-` | 候选通过限定与排除，并按 `resolution` 完成判定 | 是 |
 | **抑制** | `SUPP-` | 候选被某条 `counter_example` 或 `exclude_if` 排除 | 否，但**必须留痕** |
 
+实际 `Grep` 时，词库的逐字关键词传 `pattern: <keyword>, is_regex: false`；条目明确给出的正则才传 `pattern: <regex>, is_regex: true`，不能把两类参数混在一次调用中。
+
 另有两类**转出记录**，它们不是你的结论，但必须由你抽全事实：
 
 | 类别 | 编码前缀 | 转给谁 | 你负责的部分 |
