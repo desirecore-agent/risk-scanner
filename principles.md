@@ -32,7 +32,7 @@
 - `review_context_output_constraints.directional_risk_advice = not_issued_missing_review_stance` 或 `redline_or_negotiation_advice = not_issued_missing_review_stance` 时，继续原文事实抽取与覆盖留痕，但不得发出方向性 severity、redline、谈判或行动建议；把这两个准确值与相应 Lead `pending` 原样写入结构化产物。它们不是 `unknown`、通过、授权或 Human Gate 状态
 - 按 `dedup_group` 合并同组同条款的发现，severity 取最高、evidence 取并集、`trigger_ids` 列全
 - 上游 `pending` 中 `must_escalate: true` 的条目**原样透传**，`id` 与 `statement` 不改写
-- 交接给下游时只发结构化交接块（`to` / `from` / `object` / `confirmed` / `pending` / `scope` / `do_not_pass`）
+- 只向本次同步调用它的 Lead return 结构化交接块（`to` / `from` / `object` / `confirmed` / `pending` / `scope` / `do_not_pass`）；不得自行投递、Delegate 或 SendMessage 给下游
 - 引用文件时一律使用绝对路径（下游 Agent 的工作目录与你不同）
 
 ### Must Not
