@@ -1,0 +1,341 @@
+{
+  "risk_scan": {
+    "scan_id": "RISKSCAN-1",
+    "scanned_at": "2026-09-13T00:00:00+08:00",
+    "executed_by": "risk-scanner",
+    "skill": "risk-scanning@1.0.2",
+    "lexicon_pack_version": "lexicon-v1",
+    "base_pack_version": "base-v1",
+    "custom_pack_version": "custom-v1",
+    "ontology_version": "onto-v1",
+    "upstream": {
+      "from": "clause-extractor",
+      "extraction_id": "EXTRACT-1",
+      "artifact_path": "/tmp/extraction.yaml",
+      "intake_receipt_path": "/tmp/receipt.yaml",
+      "verdict": "conditional",
+      "frozen_baseline": {
+        "master_version": "v1",
+        "page_range": "body: 1-2",
+        "attachment_manifest_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "execution_status": "executed"
+      },
+      "consistency_conclusion_allowed": false
+    },
+    "object": {
+      "contract_object_id": "object-1",
+      "object_title": "test",
+      "version_label": "v1",
+      "content_digest": "unknown",
+      "submission_mode": "single"
+    },
+    "scope_lock": {
+      "parts_in_scope": [
+        "body"
+      ],
+      "parts_not_delivered": [
+        "attachment:a"
+      ],
+      "party_role": "unknown",
+      "party_role_source": "unknown",
+      "upstream_verdict": "conditional",
+      "consistency_conclusion_allowed": false,
+      "review_context": {
+        "case_id": "case-1",
+        "revision": 1,
+        "current_manifest": {
+          "status": "available",
+          "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "output_constraints": {
+          "factual_extraction": "allowed",
+          "directional_risk_advice": "allowed",
+          "redline_or_negotiation_advice": "allowed",
+          "jurisdiction_substantive_conclusion": "allowed"
+        }
+      }
+    },
+    "criteria_loaded": {
+      "lexicon": {
+        "pack_version": "lexicon-v1",
+        "entries_enabled": 29,
+        "language_files": [
+          "triggers-zh.yaml"
+        ],
+        "matched_language": "zh"
+      },
+      "base": {
+        "pack_version": "base-v1",
+        "missing_clauses": 9,
+        "benchmarks": 4
+      },
+      "custom": {
+        "pack_version": "custom-v1",
+        "redlines_total": 8,
+        "redlines_enabled": 0,
+        "mandatory_floor_conflicts": []
+      }
+    },
+    "version_matrix": {
+      "skill_version": "risk-scanning@1.0.2",
+      "server_version": "unknown",
+      "knowledge_base_version": "2026-08-31",
+      "jurisdiction_pack_version": "unknown",
+      "parser_revision": "0.8.4"
+    },
+    "missing_clause_findings": [
+      {
+        "check_id": "liability-cap",
+        "verdict": "present_incomplete",
+        "clause_no": "10.1",
+        "evidence": {
+          "part": "body",
+          "page": 1,
+          "quote": "cap"
+        },
+        "elements_present": [
+          "amount"
+        ],
+        "elements_missing": [
+          "exceptions"
+        ],
+        "benchmark_handoff": "liability-cap-months",
+        "conclusion": "important",
+        "action": "review"
+      }
+    ],
+    "benchmark_findings": [
+      {
+        "benchmark_id": "renewal-notice-days",
+        "actual": null,
+        "reference": {
+          "range": [
+            1,
+            2
+          ],
+          "unit": "year"
+        },
+        "gap": null,
+        "conclusion": "unknown",
+        "unknown_reason": "not applicable",
+        "status": "not_applicable"
+      }
+    ],
+    "candidates": [
+      {
+        "id": "CAND-1",
+        "trigger_id": "rt-test",
+        "clause_no": "1.1",
+        "evidence": {
+          "part": "body",
+          "page": 1,
+          "quote": "text"
+        },
+        "resolution": "element_check",
+        "matched_pattern": "text",
+        "candidate_basis": "lexicon",
+        "issuance": "not_issued_missing_review_stance"
+      }
+    ],
+    "suppressed": [
+      {
+        "id": "SUPP-1",
+        "trigger_id": "rt-test",
+        "clause_no": "1.1",
+        "evidence": {
+          "part": "body",
+          "page": 1,
+          "quote": "text"
+        },
+        "reason_kind": "counter_example",
+        "reason_ref": "rt-test.counter_examples[0]",
+        "reason": "excluded"
+      }
+    ],
+    "findings": [],
+    "deferred_to_jurisdiction": [
+      {
+        "id": "DEFER-1",
+        "trigger_id": "rt-jur",
+        "must_escalate": true,
+        "statement": "fact",
+        "facts": [
+          {
+            "name": "term",
+            "value": "3 years",
+            "evidence": {
+              "part": "body",
+              "page": 1,
+              "quote": "3 years"
+            }
+          }
+        ],
+        "required_downstream_action": "jurisdiction review",
+        "forbidden_here": "no legal conclusion"
+      }
+    ],
+    "comparables": [
+      {
+        "id": "CMP-1",
+        "trigger_id": "rt-version",
+        "name": "availability",
+        "value": "99%",
+        "clause_no": "2.1",
+        "evidence": {
+          "part": "body",
+          "page": 2,
+          "quote": "99%"
+        },
+        "direction_judged": false
+      }
+    ],
+    "redline_findings": [
+      {
+        "redline_id": "rl-liability-cap-floor",
+        "enabled": true,
+        "relation_to_base": "overrides",
+        "overrides": [
+          "base/market-benchmarks.yaml#liability-cap-months"
+        ],
+        "threshold": {
+          "min_months": 12
+        },
+        "actual": {
+          "value": 3,
+          "unit": "month"
+        },
+        "conclusion": "severe",
+        "clause_no": "9.1",
+        "evidence": {
+          "part": "body",
+          "page": 1,
+          "quote": "cap"
+        },
+        "action": "negotiate",
+        "human_gate": "HG-03",
+        "owner": "legal",
+        "staleness_note": null
+      }
+    ],
+    "coverage_matrix": [
+      {
+        "check_id": "rt-test",
+        "check_title": "test",
+        "source": "risk-lexicon",
+        "source_location": {
+          "part": "body",
+          "page": 1,
+          "quote": "text"
+        },
+        "conclusion": "blank",
+        "action": null,
+        "owner_agent": "risk-scanner",
+        "status": "blank",
+        "note": "not delivered"
+      }
+    ],
+    "human_gate_triggers": [
+      "HG-03"
+    ],
+    "failure_marks": [
+      {
+        "code": "PARTIAL-SCAN",
+        "reason": "attachment unavailable",
+        "status": "partial",
+        "check_id": "attachment:a"
+      },
+      {
+        "code": "DEBT-SCAN",
+        "reason": "retry required",
+        "status": "debt"
+      }
+    ],
+    "stats": {
+      "candidates": 1,
+      "suppressed": 1,
+      "findings_severe": 0,
+      "findings_important": 0,
+      "findings_advisory": 0,
+      "findings_unknown": 1,
+      "missing_clause_absent": 0,
+      "missing_clause_incomplete": 1,
+      "benchmark_aligned": 0,
+      "benchmark_deviated": 0,
+      "deferred_to_jurisdiction": 1,
+      "comparables": 1,
+      "coverage_covered": 0,
+      "coverage_blank": 1,
+      "coverage_blocked": 0,
+      "coverage_not_applicable": 0
+    },
+    "review_context_echo": {
+      "case_id": "case-1",
+      "revision": 1,
+      "current_manifest": {
+        "status": "available",
+        "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "actual_output_constraints": {
+        "factual_extraction": "allowed",
+        "directional_risk_advice": "allowed",
+        "redline_or_negotiation_advice": "allowed",
+        "jurisdiction_substantive_conclusion": "allowed"
+      }
+    },
+    "handoff": {
+      "to": [
+        "contract-review-lead"
+      ],
+      "from": "risk-scanner",
+      "scan_id": "RISKSCAN-1",
+      "artifact_path": "/tmp/risk.yaml",
+      "upstream_artifact_path": "/tmp/extraction.yaml",
+      "object": {
+        "contract_object_id": "object-1",
+        "object_title": "test",
+        "version_label": "v1",
+        "content_digest": "unknown",
+        "submission_mode": "single"
+      },
+      "confirmed": [
+        "facts extracted"
+      ],
+      "pending": [
+        {
+          "id": "PEND-1",
+          "origin": "risk-scanner",
+          "must_escalate": true,
+          "statement": "needs review",
+          "required_downstream_action": "review"
+        }
+      ],
+      "scope": {
+        "in_scope_completed": [
+          "scan"
+        ],
+        "out_of_scope": [
+          "law"
+        ],
+        "frozen_baseline": {
+          "master_version": "v1",
+          "page_range": "body: 1-2",
+          "attachment_manifest_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "execution_status": "executed"
+        },
+        "consistency_conclusion_allowed": false,
+        "coverage_summary": {
+          "covered": 0,
+          "blank": 1,
+          "blocked": 0,
+          "not_applicable": 0
+        },
+        "human_gate_triggers": [
+          "HG-03"
+        ]
+      },
+      "do_not_pass": [
+        "reasoning"
+      ]
+    }
+  }
+}

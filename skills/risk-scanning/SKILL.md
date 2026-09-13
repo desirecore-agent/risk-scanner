@@ -9,7 +9,7 @@ description: >-
   续约通知期、竞业期限、数据导出、企业红线时使用。
   Use when scanning an extracted contract for risk: lexicon triggers with false-positive
   suppression, nine missing-clause checks, four market benchmarks and enabled custom redlines.
-version: 1.0.1
+version: 1.0.2
 type: procedural
 risk_level: low
 status: enabled
@@ -26,11 +26,13 @@ requires:
     - Glob
     - Grep
     - Write
+    - Edit
     - MathCalc
     - GenerateUUID
+    - StructuredFileValidate
 metadata:
   author: DesireCore
-  version: 1.0.1
+  version: 1.0.2
   updated_at: '2026-09-07'
 ---
 
@@ -49,8 +51,8 @@ metadata:
    要素判不了、对等性判不了，不是指检索不充分——检索不充分写 `blank` 并给出检索范围。
 4. **没检查到就显式留白。**覆盖矩阵里每一项都必须有状态；`blank` 与 `blocked` 单列，禁止计入通过率。
 5. **不越界。**法律效力属 `jurisdiction-auditor`；版本方向、评分与最终动作属 `review-reporter`。
-6. **结构化产物必须先通过 YAML 序列化闸门，再发送交接。**机器消费的风险产物与回执必须使用可解析的 YAML；产物中**禁止使用 `{...}` 内联 flow map 和非空 `[...]` flow sequence**，全部改写为块式映射和序列；无项列表可以写成 `[]`。若标量包含 `[`、`]`、`{`、`}`、`:`、`#`、`,`、换行或会被 YAML 解释为布尔/数字/null 的内容，必须使用单引号或双引号；`reason_ref`、路径、哈希、ID 和 evidence quote 一律按此规则处理。代码样例中的未引用路径只表示语义，不得原样复制成 flow map 标量。
-7. **写入后必须完整回读并自检。**`Write` 结束后立即用 `Read` 读取整个文件；若运行时提供 YAML 解析工具/技能，必须调用它验证根键、必需字段和括号/缩进。若当前运行时没有可调用的 YAML 解析器，必须采取保守路径：只允许使用本技能的块式模板、逐行检查缩进与引号，并返回 `yaml_parse: unavailable`，**不得声称 `yaml_parse: passed` 或发送成功 handoff**。任一解析/结构检查失败时不得发送 `SendMessage`，必须用 `Edit` 修复、再次完整回读和检查，直到通过；无法修复时返回 `REJECT-RISK-YAML` 并停止 handoff。
+6. **结构化产物必须先通过受限 YAML Schema 闸门，才可 return 给调用 Lead。**机器消费的风险产物与回执必须使用可解析的 YAML；产物中**禁止使用 `{...}` 内联 flow map 和非空 `[...]` flow sequence**，全部改写为块式映射和序列；无项列表可以写成 `[]`。若标量包含 `[`、`]`、`{`、`}`、`:`、`#`、`,`、换行或会被 YAML 解释为布尔/数字/null 的内容，必须使用单引号或双引号；`reason_ref`、路径、哈希、ID 和 evidence quote 一律按此规则处理。代码样例中的未引用路径只表示语义，不得原样复制成 flow map 标量。
+7. **写入后必须完整回读并实际校验。**先 `Read` 本技能 release-owned `references/risk-scan.schema.json`；读取失败即 HOLD。`Write` 产物后立刻 `Read` 全文件，再调用 `StructuredFileValidate(document_path=<最终产物绝对路径>, schema_path=<已读取 schema 绝对路径>, format=yaml)`。只有公共结果 `valid:true` 才可 return，且此后不得修改该文件。`valid:false` 时仅允许一次：修复**自己的**产物、完整 `Read`、再次同 schema 校验；第二次 `valid:false`、任何工具错误/超限/取消或不可读都 HOLD（`REJECT-RISK-SCHEMA`），不得伪造 `yaml_parse: passed`。本 Agent 没有 `SendMessage` 或 `Delegate` 权限：不得自行投递、派发或绕过 Lead；只向本次同步调用它的 Lead return 最终绝对路径与公共验证结果。
 
 ---
 
@@ -84,6 +86,8 @@ metadata:
 | **候选** | `CAND-` | 关键词或正则命中的条款，仅表示「值得看一眼」 | 否 |
 | **发现** | `RISK-` | 候选通过限定与排除，并按 `resolution` 完成判定 | 是 |
 | **抑制** | `SUPP-` | 候选被某条 `counter_example` 或 `exclude_if` 排除 | 否，但**必须留痕** |
+
+实际 `Grep` 时，词库的逐字关键词传 `pattern: <keyword>, is_regex: false`；条目明确给出的正则才传 `pattern: <regex>, is_regex: true`，不能把两类参数混在一次调用中。
 
 另有两类**转出记录**，它们不是你的结论，但必须由你抽全事实：
 
@@ -125,15 +129,18 @@ M5 合并    按 dedup_group 合并同组同条款；全部检查项写进覆盖
 **不校验就开工，等于在一个不成立的对象上做风险评分。**
 
 1. 读上游 `clause-extractor` 的 `handoff` 块与 `artifact_path` 指向的抽取产物。
-2. 校验 `upstream.verdict ∈ {passed, conditional}`。为 `blocked` 时**立即停止**，
+2. 若这是 Team O3 交接，先要求并 `Read` 五个扁平 context 字段：`review_context_path`、`review_context_case_id`、`review_context_revision`、`review_context_current_manifest`、`review_context_output_constraints`。解析 Lead-owned context 后，逐项比较 `case_binding.case_id`、`revision`、`case_binding.current_contract_manifest` 与完整 `output_constraints`；只接受完全相等的快照。context 仅声明业务审查范围，不是平台身份、代表权、文件/工具授权或 Human Gate 确认。缺字段、读取/解析失败或任一值不一致时停止并回报 `REJECT-STALE-REVIEW-CONTEXT`，不得用旧摘要、文件名或 Agent 自己填写的值降级。
+3. 若 `jurisdiction.status: candidate_basis` 的唯一 `candidate_basis.pack.status` 为 `not_prechecked`，或 `jurisdiction.status: conflicting` 的任一 `candidate_bases[].pack.status` 为 `not_prechecked`，这是 Lead 受限 O0 尚未授权预检的状态：原样保留 `PEND-JURISDICTION-PACK-PREFLIGHT` 与既有 `HG-02`（如有），立即返回失败诊断 `REJECT-UNPRECHECKED-REVIEW-CONTEXT`。不得自行 `Read` 任何规则包或 rules 文件补救，不得开始风险扫描、写成功回执、业务产物或交接，也不得把 `not_issued_pack_preflight_pending` 当作普通的输出抑制后继续运行。
+4. 独立用户请求没有 Team handoff 时，不得伪造上述五字段或 `review_context_echo`；仍可按本技能做原文事实提取与澄清，但不得把缺 context 说成平台未签发或任何授权事实。
+5. 校验 `upstream.verdict ∈ {passed, conditional}`。为 `blocked` 时**立即停止**，
    不读材料、不出清单、不交接，回报组长「上游已阻断，风险判读不启动」。
-3. **原样承接**以下字段，逐字复制到自己的产物，**不重新校验、不改写、不推翻**：
+6. **原样承接**以下字段，逐字复制到自己的产物，**不重新校验、不改写、不推翻**：
    - `frozen_baseline`（`master_version` / `attachment_manifest_digest` / `page_range` / `execution_status`）
    - `consistency_conclusion_allowed`（原样透传，不得置 `true`）
    - `object` 三元组（`contract_object_id` / `object_title` / `version_label` / `content_digest`）
-4. **锁定扫描范围**：只在 `frozen_baseline.page_range` 列出的部件上匹配。
+7. **锁定扫描范围**：只在 `frozen_baseline.page_range` 列出的部件上匹配。
    `scope.blank_fields` 与未送达部件对应的检查项一律写 `not_covered`，**不得凭正文引用推测附件内容**。
-5. **确认己方角色**（客户方 / 供应方 / 雇主方 / 劳动者方 / 未确认）。
+8. **确认己方角色**（客户方 / 供应方 / 雇主方 / 劳动者方 / 未确认）。
    角色来自上游交接或用户输入，**不得推测**。未确认时记录 `party_role: unknown`，
    后续所有方向敏感的条目一律输出 `unknown` 并写明原因。
 
@@ -154,7 +161,22 @@ scope_lock:
   party_role_source: upstream_handoff   # upstream_handoff | user_input | unknown
   upstream_verdict: conditional
   consistency_conclusion_allowed: false
+  review_context:
+    case_id: case-20260911-001
+    revision: 2
+    current_manifest:
+      status: available
+      digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    output_constraints:
+      factual_extraction: allowed
+      directional_risk_advice: allowed
+      redline_or_negotiation_advice: allowed
+      jurisdiction_substantive_conclusion: allowed
 ```
+
+Team 路径必须把这份已核验的四字段 context 快照复制进最终 `review_context_echo`（见「产物完整结构」）；`scope_lock.review_context` 已存在时 schema 也会拒绝缺失 echo。两处值必须逐字一致：Schema 不能跨字段比较，故在 return 前以完整 `Read` 的当前字节逐项比对；不一致即 HOLD。它永远不替代上游 object、frozen baseline 或 Human Gate 证据。
+
+若两个方向性 constraint 任一为 `not_issued_missing_review_stance`，它优先于 `party_role`、R3→R7 中的普通结论模板和任何词库 `recommended_action`：这些普通模板只适用于两个 constraint 都为 `allowed` 的 Team 路径。事实记录、quote、覆盖行与既有 Human Gate 触发事实仍必须保留，但不得把事实换写成方向性 severity、redline、谈判或行动建议。
 
 ---
 
@@ -190,7 +212,7 @@ criteria_loaded:
     mandatory_floor_conflicts: []
 
 version_matrix:
-  skill_version: risk-scanning@1.0.1
+  skill_version: risk-scanning@1.0.2
   server_version: <运行时读取>
   knowledge_base_version: '2026-08-31'
   jurisdiction_pack_version: <承自上游；本 Agent 不加载法域包，仅登记>
@@ -453,6 +475,18 @@ suppressed:
 
 通过 M2 的候选按 `resolution` 分流。**只有前三类可以单独下结论。**
 
+### 方向性结论未签发时的事实路径
+
+当已核验的 Team context 把 `directional_risk_advice` 或 `redline_or_negotiation_advice` 写为
+`not_issued_missing_review_stance`，R1→R5、原文 quote、数值、要素、对等性和覆盖矩阵仍完整执行；
+这不是检索失败，也不应记成 `pass`、`unknown` 或 Human Gate 已满足。
+
+- `findings` 与 `redline_findings` 不得写方向性 `conclusion`、`action`、谈判建议或基于己方利益的 severity；将其置为空数组。
+- 将已提取的原文事实保留在 `candidates`、`missing_clause_findings`、`benchmark_findings` 与 `deferred_to_jurisdiction` 中；每条受约束记录写 `issuance: not_issued_missing_review_stance`，而非伪造结论四元组。
+- 产物顶层 `not_issued` 必须逐字记录两个 constraint 值及 Lead `pending` 的 `PEND-REVIEW-STANCE-REQUIRED`；它只说明本次未能发出该类输出，不说明用户身份、代表权、授权或 Gate 状态。
+
+`factual_extraction: allowed` 只保留事实抽取范围，绝不解除上述限制。
+
 ### `element_check` —— 按要素齐备性判定
 
 逐项判该条目列出的要素，**缺哪一项写哪一项**。要素无法判定时该要素写 `unknown`，
@@ -705,13 +739,21 @@ stats:
 
 ## 落盘
 
+Team 调用时，只能在**实际确认**的 Team effective cwd 的 member-owned 唯一子树写入：
+
 ```
-<有效工作目录>/contract-review/<contract_object_id>/risk/<scan_id>.risk.yaml
+<已确认 Team effective cwd>/members/risk-scanner/<case-id>/<generated-scan-id>/<generated-scan-id>.risk.yaml
 ```
 
-`<有效工作目录>` 用 `Ls` 实际确认后使用绝对路径，**不要在提示词或产物里写死任何用户主目录字面量**。
-旧产物**保留不覆盖**——词库或标尺更新后要靠它们做历史回放与差异对比。
-`lexicon_pack_version` 或 `base pack_version` 变化后，旧产物一律作废重扫，不做增量修补。
+`case-id` 仅取自当前 O3 已实际 `Read` 并核对的 `review_context_case_id` 与 `review-context.case_binding.case_id` 的相等值；Lead 的五字段公开输入没有裸 `handoff.case_id`，不得另要求或虚构它。`generated-scan-id` 仅从本次 `GenerateUUID` / `scan_id` 取得。effective cwd、上述两处一致的 case id 或 scan id 任一未实际取得即 HOLD；不得从 intentId、task、文件名、路径、历史 run、binding、UUID 形态或 Lead 工作区猜测。不得写入 Lead-owned `contract-review/**`、任何其他成员子树、既有产物或 Team root 的其他位置。
+
+非 Team 请求只能在 `Ls` 实际确认的本 Agent 自己 workspace 下生成新的唯一子树：
+
+```
+<已确认自身 workspace>/members/risk-scanner/<generated-scan-id>/<generated-scan-id>.risk.yaml
+```
+
+旧产物**保留不覆盖**——词库或标尺更新后要靠它们做历史回放与差异对比。`lexicon_pack_version` 或 `base pack_version` 变化后，旧产物一律作废重扫，不做增量修补。
 
 ---
 
@@ -725,7 +767,7 @@ risk_scan:
   scan_id: RISKSCAN-20260331-9c4e17b2
   scanned_at: 2026-03-31T11:20:04+08:00
   executed_by: risk-scanner
-  skill: risk-scanning@1.0.1
+  skill: risk-scanning@1.0.2
   lexicon_pack_version: lexicon-v1
   base_pack_version: base-v1
   custom_pack_version: custom-v1
@@ -769,6 +811,14 @@ risk_scan:
   redline_findings:
     # R7（仅已启用）
 
+  not_issued:
+    # 仅 Team context 限制方向性输出时存在；不是 unknown 或授权状态
+    directional_risk_advice: not_issued_missing_review_stance
+    redline_or_negotiation_advice: not_issued_missing_review_stance
+    pending:
+      - code: PEND-REVIEW-STANCE-REQUIRED
+        required_from: user
+
   coverage_matrix:
     # R8.2（全部检查项）
   human_gate_triggers:
@@ -777,6 +827,18 @@ risk_scan:
     # 结构化失败标记
   stats:
     # R8.4
+
+  review_context_echo:                 # 仅 Team O3 路径，独立用户请求不得伪造
+    case_id: case-20260911-001
+    revision: 2
+    current_manifest:                   # 与已 Read 的 handoff/context 快照完全相等
+      status: available
+      digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    actual_output_constraints:           # 四个完整约束字段，逐字回显
+      factual_extraction: allowed
+      directional_risk_advice: allowed
+      redline_or_negotiation_advice: allowed
+      jurisdiction_substantive_conclusion: allowed
 
   handoff:
     # 见下节
@@ -794,15 +856,14 @@ risk_scan:
 
 | 收件方 | 方式 | 内容 |
 |---|---|---|
-| `contract-review-lead` | `SendMessage` | 完成回报 + 产物绝对路径 + `stats` |
+| `contract-review-lead` | 同步调用 return-only | 完成回报 + 产物绝对路径 + 公共 `StructuredFileValidate` 结果 + `stats` |
 | `review-reporter` | **不投递** | —— 见下方警告 |
 | `jurisdiction-auditor` | **不投递** | 并行 Agent，互不引用对方的中间结论 |
 
 > ⚠️ **`review-reporter` 不在收件名单里，这是刻意的。**蓝本第二节要求复核 Agent
 > 「基于原文与结构化事实重新判断，**不读前序推理**」。最干净的保证不是「发一份贫瘠的交接」，
 > 而是**根本没有这条通道**——它由组长告知产物路径后自行从磁盘读取。
-> 不得用 `Delegate` / `SendMessage` 绕过这一点，也**禁止**用 `Delegate` 的 `subtask` 模式
-> （它继承完整对话历史，正好违背独立复核约束）。
+> 本 Agent 不得直接投递：调用 Lead 是唯一调度者，负责 O3 回执消费与唯一 O4 派发。
 
 > ⚠️ **不向 `jurisdiction-auditor` 投递。**你们并行执行，各自消费同一份上游交接。
 > `deferred_to_jurisdiction` 写在**产物文件**里，由组长在两条并行分支都完成后统一归集，
@@ -895,7 +956,7 @@ handoff:
     - 任何未经 evidence 锚定的判断
 ```
 
-**交接方式硬规则**：引用的所有文件必须写**绝对路径**——下游 Agent 的工作目录与你不同。
+**return-only 硬规则**：引用的所有文件必须写**绝对路径**。不得调用 `SendMessage`、`Delegate` 或其他下游投递；同步调用的 Lead 读取 return 后自行决定后续调度。
 
 ---
 
@@ -965,8 +1026,10 @@ handoff:
 
 **可回放**
 
-- [ ] 产物落盘用的是 `Ls` 实际确认过的绝对路径，没有写死用户主目录字面量
+- [ ] Team 产物只写入实际确认 effective cwd 的 `members/risk-scanner/<case-id>/<generated-scan-id>/`；非 Team 只写入自身实际确认 workspace 的同类唯一子树，未猜测 cwd/case/id，未写入 Lead `contract-review/**` 或其他成员产物
 - [ ] 旧产物未被覆盖，本次是新的 `scan_id`
 - [ ] 版本矩阵五个维度都已登记，缺失的写了 `unknown` 而不是省略
 - [ ] 最终文件未使用任何 `{...}` / `[...]` flow notation；含 YAML 语法字符的标量已引用
-- [ ] `Read` 完整回读后的 YAML 结构自检通过；有解析器时 `handoff.confirmed` 含 `yaml_parse: passed`，无解析器时含 `yaml_parse: unavailable` 且没有发送成功 handoff
+- [ ] `Write` 前已 `Read` release-owned `references/risk-scan.schema.json`；`Write` 后已完整 `Read` 最终文件并用 `StructuredFileValidate(..., format: yaml)` 得到公共 `valid:true`
+- [ ] 成功校验后未再修改最终文件；第一次 mismatch 只修复本 Agent 自己的文件一次，第二次 mismatch 或工具失败为 `REJECT-RISK-SCHEMA` HOLD；未伪造 `yaml_parse: passed`
+- [ ] 只向同步调用的 Lead return 最终路径、公共校验结果和 stats；未使用 `SendMessage` 或 `Delegate`
