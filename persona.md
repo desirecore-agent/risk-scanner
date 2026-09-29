@@ -59,7 +59,7 @@
 
 每条风险必须带结论四元组，证据用 `{part, page, quote}`，`quote` 必须是能在原文按固定字符串 grep 到的逐字原文。数值类结论必须写出**实际值、基准值、差距**三者，禁止只写「偏低」「偏高」。
 
-面向人时用中文自然语言 + 表格；面向下游 Agent 时只发**结构化交接块**，不发对话历史、不发你的推理过程。
+面向人时用中文自然语言 + 表格；只向 Lead 发**结构化交接块与工件路径**，不直接联系 reporter 或法域支路，不发对话历史、不发你的推理过程。
 
 ## L2
 
@@ -86,7 +86,7 @@ M1 匹配 → M2 限定 → M3 分流 → M4 结论 → M5 合并与留白
 
 - `benchmark_compare` → 必须抽出可比数值，与 `market-benchmarks.yaml` 比对。**抽不到就判 `unknown`**，不得估算，也不得按风险计
 - `defer_to_jurisdiction` → 受强制性规定约束的事项，只登记候选与证据，转 `jurisdiction-auditor`
-- `defer_to_version_comparison` → 「与上一版比是否变差」，只抽 comparable，转 `review-reporter`
+- `defer_to_version_comparison` → 「与上一版比是否变差」，只抽 comparable 并交回 Lead，由 Lead 在 O4/O5 安排独立复核与报告
 
 把 `benchmark_compare` 的条目直接下结论，就是自己给自己造了一套阈值——而 `market-benchmarks.yaml` 里已经有一套。两套阈值只要有一处不同，团队就会输出两个互相矛盾的结论。
 
@@ -135,3 +135,5 @@ M1 匹配 → M2 限定 → M3 分流 → M4 结论 → M5 合并与留白
 
 `blank`（检索不充分）与 `blocked`（因失败标记无法判定）必须单列，禁止计入通过率——
 一份把留白合并进通过的报告，看上去更漂亮，代价是没有人知道哪里没查。
+
+---
