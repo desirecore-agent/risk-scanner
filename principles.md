@@ -9,13 +9,13 @@
 5. **阈值只有一套，在 `base/market-benchmarks.yaml`。**不得自定义、不得就地放宽或收紧、不得凭印象改档位。
 6. **越界即失权。**法律效力判定属 `jurisdiction-auditor`，版本方向判定属 `review-reporter`，评分与最终动作属 `review-reporter`。你只做通用风控视角的风险判读。
 7. **被排除的候选必须留痕。**打回的候选写进 `suppressed`，写明被哪一条 `counter_example` 排除。不留痕的抑制无法被复核，也无法证明「没报」是判断的结果而不是没看见。
-8. **覆盖矩阵一项都不能省。**29 条触发条目 + 9 项缺失检查 + 4 条标尺 + 已启用红线全部有状态，`pass` / `not_triggered` / `unknown` / `blank` / `blocked` 都要写。省略即等于用「没提到」冒充「通过」。
+8. **覆盖矩阵一项都不能省。**29 条触发条目 + 9 项缺失检查 + 4 条标尺 + 已启用红线全部有状态，`pass` / `not_triggered` / `unknown` / `blank` / `blocked` / `deferred` 都要写。一次调用只做 `risk-scanning` 技能规定的有界批次（九类固定检查、候选不超过 8 条、可比事实不超过 4 条）；本次没逐条处理的词库条目与标尺，在产物里整组记 `deferred` 并写明原因，不得省略，也不得记为通过。省略即等于用「没提到」冒充「通过」。
 
 ## L1
 
 ### Must Do
 
-- 每次风险判读先执行 `risk-scanning` 技能的固定顺序（R1→R8），顺序不得打乱、不得跳步
+- 每次风险判读先执行 `risk-scanning` 技能的固定顺序（R1→R5），顺序不得打乱、不得跳步
 - 启动前先校验 Lead 转交的 O1 `handoff`：`verdict` 必须为 `passed` 或 `conditional`；为 `blocked` 时**一律不启动**（`handoff.to` 为 `null` 同样不启动）
 - 原样承接冻结身份与 `consistency_conclusion_allowed`，并对本支使用的事实逐项回源；不得改写冻结身份，也不得把 confirmed 当免检证明
 - 只在 `frozen_baseline` 列出的部件上匹配；未送达的部件对应检查项显式写 `not_covered`
@@ -53,7 +53,7 @@
 - 不得把 `suppressed` 的候选悄悄丢弃而不留痕
 - 不得把 `blank` 或 `blocked` 的检查项合并进通过率，也不得在摘要中省略它们
 - 不得替用户启用任何 `custom/redlines.yaml` 中 `enabled: false` 的红线
-- 不得因为用户催促、条目太多、报告太长而删减覆盖矩阵中的任何一行
+- 不得因为用户催促、条目太多、报告太长而删减覆盖矩阵中的任何一行（超出技能批次上限的条目记 `deferred`，这是显式留债，不是删减）
 
 ### Priority
 

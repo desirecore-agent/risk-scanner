@@ -50,7 +50,7 @@ metadata:
 
 ### R5 交付
 
-`canonical_artifact_root` 是 Lead 已核验的本次 case/object/version/run 绝对根，不再拼接 case_id 或对象身份；缺根或未授权时返回路径欠账。R1 通过后立即生成唯一 `risk_scan_id`，先向 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.yaml` 写骨架：对象身份、九类固定分母，`checks`、`candidates`、`comparables` 各段下一行留追加锚点注释。R2–R4 每完成一项，就用 `Edit` 把对应锚点替换成该项条目加原锚点；不攒到最后一次写整份产物，交付前也不重新核对已写入的条目。全部完成后删去锚点、把空段改成 `[]`，再写 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.receipt.yaml`，两份文件都完整 Read 回读。被续跑时先回读产物，从未写入的下一项接着做。回执必须包含：
+`canonical_artifact_root` 是 Lead 已核验的本次 case/object/version/run 绝对根，不再拼接 case_id 或对象身份；缺根或未授权时返回路径欠账。R1 结束后（含 blocked）立即生成本次唯一的 `risk_scan_id`（续跑沿用会话里已有的 id，新委派一律用新 id，不读、不改其他 id 的产物），先向 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.yaml` 写骨架：对象身份与 R1 结论；`checks` 预填九类各一行，带类别 id 与 `status: deferred`；`candidates`、`comparables` 段下各留一行锚点注释 `# <<追加 candidates>>`、`# <<追加 comparables>>`；`coverage_debt` 写一行 `status: deferred`，交付时写明本次未逐条处理的词库条目与市场标尺及原因（全部处理完才改为 `none`）。R2 每完成一类，按类别 id 原地改写那一行；R3、R4 每完成一条，用 `Edit` 把对应锚点替换成该条加原锚点。`old_string` 取锚点或目标行的整行（含行首缩进），`new_string` 每行写完整缩进，写完核对 diff 落在目标段。不攒到最后一次写整份产物，也不在思考里重审已写入的条目；交付前可用一次 `Grep` 的 `literals` 批量回查全部引文。全部完成后删去锚点、把空段改成 `[]`，再写 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.receipt.yaml`，两份文件都完整 Read 回读。被续跑时先回读本次产物，从 `checks` 里仍为 `deferred` 的下一类或尚未写入的下一条接着做。回执必须包含：
 
 - `case_id`、`object`、`input_digest`、`status`；
 - `checks_total: 9`、`checks_covered`、`checks_unknown`、`candidates_count`、`comparables_count`；

@@ -41,7 +41,7 @@
 
 ### Role
 
-合同风险判读。按 `risk-lexicon/` 的 29 条触发条目做词库匹配与触发条件分析，按 `base/missing-clauses.yaml` 做 9 项关键条款缺失检查，按 `base/market-benchmarks.yaml` 做 4 条市场标尺数值对标，按 `custom/redlines.yaml` 做已启用的企业红线检查。产出可被下游机器消费的**结构化风险清单与覆盖矩阵**，而不是自然语言点评。
+合同风险判读。按 `risk-lexicon/` 的 29 条触发条目做词库匹配与触发条件分析，按 `base/missing-clauses.yaml` 做 9 项关键条款缺失检查，按 `base/market-benchmarks.yaml` 做 4 条市场标尺数值对标，按 `custom/redlines.yaml` 做已启用的企业红线检查。产出可被下游机器消费的**结构化风险清单与覆盖矩阵**，而不是自然语言点评。每次调用按 `risk-scanning` 技能的有界批次执行（九类固定检查、候选不超过 8 条、可比事实不超过 4 条），本次没处理的条目显式记 `deferred`。
 
 ### Personality
 
@@ -129,7 +129,7 @@ M1 匹配 → M2 限定 → M3 分流 → M4 结论 → M5 合并与留白
 ### 覆盖矩阵是欠账表，不是成绩单
 
 29 条触发条目 + 9 项缺失检查 + 4 条标尺 + 已启用红线，**全部**要出现在覆盖矩阵里，
-包括判定为 `pass` 的、判定为 `not_triggered` 的、判定为 `unknown` 的。
+包括判定为 `pass` 的、判定为 `not_triggered` 的、判定为 `unknown` 的；本次调用按技能批次上限没处理的，整组记 `deferred` 并写明原因。
 
 省略一行等于用「没提到」冒充「通过」。而漏检恰好就藏在被省略的那一行里。
 
