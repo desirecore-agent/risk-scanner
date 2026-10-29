@@ -9,7 +9,7 @@ risk_level: low
 status: enabled
 tags: [contract-review, risk-identification, bounded-loop, receipt-audit]
 requires:
-  tools: [Read, Ls, Glob, Grep, Write, GenerateUUID]
+  tools: [Read, Ls, Glob, Grep, Write, Edit, GenerateUUID]
 metadata:
   author: DesireCore
   updated_at: '2026-09-15'
@@ -50,7 +50,7 @@ metadata:
 
 ### R5 交付
 
-`canonical_artifact_root` 是 Lead 已核验的本次 case/object/version/run 绝对根，不再拼接 case_id 或对象身份；缺根或未授权时返回路径欠账。为本次调用生成唯一 `risk_scan_id`，分别写入 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.yaml` 与 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.receipt.yaml`，写入后完整 Read 回读。回执必须包含：
+`canonical_artifact_root` 是 Lead 已核验的本次 case/object/version/run 绝对根，不再拼接 case_id 或对象身份；缺根或未授权时返回路径欠账。R1 通过后立即生成唯一 `risk_scan_id`，先向 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.yaml` 写骨架：对象身份、九类固定分母，`checks`、`candidates`、`comparables` 各段下一行留追加锚点注释。R2–R4 每完成一项，就用 `Edit` 把对应锚点替换成该项条目加原锚点；不攒到最后一次写整份产物，交付前也不重新核对已写入的条目。全部完成后删去锚点、把空段改成 `[]`，再写 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.receipt.yaml`，两份文件都完整 Read 回读。被续跑时先回读产物，从未写入的下一项接着做。回执必须包含：
 
 - `case_id`、`object`、`input_digest`、`status`；
 - `checks_total: 9`、`checks_covered`、`checks_unknown`、`candidates_count`、`comparables_count`；
