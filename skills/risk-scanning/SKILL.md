@@ -3,7 +3,7 @@ name: risk-scanning
 description: >-
   有界合同风险扫描：从 O2 条款事实中检查固定缺失条款、少量词库触发和市场比较事实，
   在单个成员回合内产出带证据的风险观察回执；不做法域效力或最终评分。
-version: 1.1.1
+version: 1.2.0
 type: procedural
 risk_level: low
 status: enabled
@@ -12,7 +12,7 @@ requires:
   tools: [Read, Ls, Glob, Grep, Write, Edit, GenerateUUID]
 metadata:
   author: DesireCore
-  updated_at: '2026-09-15'
+  updated_at: '2026-10-30'
   pipeline_stage: O3
   upstream: contract-review-lead
   downstream: [contract-review-lead]
@@ -36,6 +36,17 @@ metadata:
 
 只接受 Lead 转交的有效 O1 回执、O2 工件和冻结来源。按有界批次回源；若 verdict 非 `passed|conditional`，本支 blocked。对象摘要不一致或单一路径不可读时记录对应 `blocked/capability_debt`，但不得把一个局部失败扩成全案所有检查均失败。
 
+### 落盘次序（先于 R2–R4）
+
+按下列次序推进，不要先在思考里把九类、全部词条和标尺规划完再动手：
+
+1. R1 结束（含 blocked）后的下一次回复只做两步：`GenerateUUID` 取本次 `risk_scan_id`（续跑沿用会话里已有的 id，新委派一律用新 id，不读、不改其他 id 的产物），随后 `Write` 骨架到 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.yaml`。骨架只含对象身份与 R1 结论；`checks` 预填九类各一行，带类别 id 与 `status: deferred`；`candidates`、`comparables` 段下各留一行锚点注释 `# <<追加 candidates>>`、`# <<追加 comparables>>`；`coverage_debt` 写一行 `status: deferred`。骨架不含任何判读：写骨架之前不规划九类结论、不预扫词库、不预选候选。
+2. 词库命中交给工具：骨架写完后，用 `Grep` 的 `literals`（`path` 写已送达部件的单文件绝对路径，多部件逐个文件查；每批不超过 64 项）分批查全部词条的 `keywords`，以返回的 matched/not_found 和位置作为命中依据，不在思考里逐条默读原文或词库找命中。keywords 全部 not_found 的词条，把它们的 `patterns` 用 `|` 合成一个正则，对同一文件补查一次 `Grep`；补查命中的词条转入 R3 判定，仍无命中的记 `not_triggered`，检索证据写关键词与正则均 0 命中。
+3. R2 一次回复只处理一类：回源取证、判定，再用 `Edit` 按类别 id 原地改写那一行。
+4. R3、R4 一次回复只处理一条：对有命中的词条看限定与反例、判定，再用 `Edit` 把对应锚点替换成该条加原锚点。命中词条超出本批上限时先处理严重度高的，其余写进 `coverage_debt` 的未处理清单。
+5. `Edit` 的 `old_string` 取锚点或目标行的整行（含行首缩进），`new_string` 每行写完整缩进，写完核对 diff 落在目标段。不攒到最后一次写整份产物，也不在思考里重审已写入的条目。
+6. 被续跑时先回读本次产物，从 `checks` 里仍为 `deferred` 的下一类或尚未写入的下一条接着做。
+
 ### R2 固定检查
 
 对以下九类逐项给出 `covered`、`not_applicable`、`unknown`、`deferred`、`capability_debt` 或 `blocked`：付款/交付、验收、知识产权、保密、数据处理、责任上限、违约/赔偿、终止/续约、争议解决。九类是固定分母；一次调用只处理可靠完成的有界批次（候选建议不超过 8 条），上限不缩减固定分母，未处理项显式留债。每项可保留多个实际来源和冲突证据；缺少条款必须明确记录，不得按通过处理。
@@ -50,7 +61,7 @@ metadata:
 
 ### R5 交付
 
-`canonical_artifact_root` 是 Lead 已核验的本次 case/object/version/run 绝对根，不再拼接 case_id 或对象身份；缺根或未授权时返回路径欠账。R1 结束后（含 blocked）立即生成本次唯一的 `risk_scan_id`（续跑沿用会话里已有的 id，新委派一律用新 id，不读、不改其他 id 的产物），先向 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.yaml` 写骨架：对象身份与 R1 结论；`checks` 预填九类各一行，带类别 id 与 `status: deferred`；`candidates`、`comparables` 段下各留一行锚点注释 `# <<追加 candidates>>`、`# <<追加 comparables>>`；`coverage_debt` 写一行 `status: deferred`，交付时写明本次未逐条处理的词库条目与市场标尺及原因（全部处理完才改为 `none`）。R2 每完成一类，按类别 id 原地改写那一行；R3、R4 每完成一条，用 `Edit` 把对应锚点替换成该条加原锚点。`old_string` 取锚点或目标行的整行（含行首缩进），`new_string` 每行写完整缩进，写完核对 diff 落在目标段。不攒到最后一次写整份产物，也不在思考里重审已写入的条目；交付前可用一次 `Grep` 的 `literals` 批量回查全部引文。全部完成后删去锚点、把空段改成 `[]`，再写 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.receipt.yaml`，两份文件都完整 Read 回读。被续跑时先回读本次产物，从 `checks` 里仍为 `deferred` 的下一类或尚未写入的下一条接着做。回执必须包含：
+`canonical_artifact_root` 是 Lead 已核验的本次 case/object/version/run 绝对根，不再拼接 case_id 或对象身份；缺根或未授权时返回路径欠账。产物按上文「落盘次序」逐步写入 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.yaml`；`coverage_debt` 交付时写明本次未逐条处理的词库条目与市场标尺及原因（全部处理完才改为 `none`）。交付前可用一次 `Grep` 的 `literals` 批量回查全部引文。全部完成后删去锚点、把空段改成 `[]`，再写 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.receipt.yaml`，两份文件都完整 Read 回读。回执必须包含：
 
 - `case_id`、`object`、`input_digest`、`status`；
 - `checks_total: 9`、`checks_covered`、`checks_unknown`、`candidates_count`、`comparables_count`；
