@@ -66,7 +66,7 @@ metadata:
 
 ### R3 触发与抑制
 
-只判定第 2 步检索命中（`hit`）的词条，最多 8 个候选；判定某条时只按行号 Read 该词条那一段的限定与反例。每个候选必须有 `candidate_id`、命中词、`clause_ref`、`evidence_quote`、`status` 和 `reason`。`status` 取词条的 `severity`（`severe`/`important`/`advisory`），或 `pass`/`unknown`/`suppressed`。关键词本身不是结论；不确定就 `unknown`，被反例排除就 `suppressed`。`resolution: benchmark_compare` 的词条按 `benchmarks` 对应行比较：实际值不劣于基准写 `pass`，劣于基准取词条 `severity`，`reason` 指向该行。
+只判定第 2 步检索命中（`hit`）的词条，最多 8 个候选；判定某条时只按行号 Read 该词条那一段的限定与反例。每个候选必须有 `candidate_id`、命中词、`clause_ref`、`evidence_quote`、`status` 和 `reason`。`status` 取词条的 `severity`（`severe`/`important`/`advisory`），或 `pass`/`unknown`/`suppressed`。关键词本身不是结论；不确定就 `unknown`，被反例排除就 `suppressed`。`resolution: benchmark_compare` 的词条按 `benchmarks` 对应行比较：实际值不劣于基准写 `pass`，劣于基准时取 `market-benchmarks.yaml` 该标尺 `deviation_signals` 命中档的 `conclusion`（不用词条默认 `severity`），`reason` 指向该行。
 
 ### R4 可比事实
 
@@ -77,9 +77,9 @@ metadata:
 `canonical_artifact_root` 是 Lead 已核验的本次 case/object/version/run 绝对根，不再拼接 case_id 或对象身份；缺根或未授权时返回路径欠账。产物按上文「落盘次序」逐步写入 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.yaml`；`coverage_debt` 交付时写明本次未逐条处理的词库条目与市场标尺及原因（全部处理完才改为 `none`）。交付前可用一次 `Grep` 的 `literals` 批量回查全部引文。全部完成后删去锚点、把空段改成 `[]`，再写 `<canonical_artifact_root>/risk-scan/<risk_scan_id>.receipt.yaml`，两份文件都完整 Read 回读。回执必须包含：
 
 - `case_id`、`object`、`input_digest`、`status`；
-- `checks_total: 9`、`checks_covered`、`checks_unknown`、`candidates_count`、`comparables_count`；
+- `checks_total: 9`、`checks_covered`（`present_complete`、`present_incomplete`、`absent`、`not_applicable` 之和，即已完成判定的项）、`checks_unknown`（`not_checked`、`deferred`、`capability_debt`、`blocked` 之和）、`candidates_count`、`comparables_count`；
 - `artifact_path`、`evidence_refs`、`read_back: passed`。
 
-完成标准是产物和回执都真实存在、能回读、对象身份一致、每个 `covered`/风险候选都有证据。只向 Lead 返回绝对路径、固定分母统计与欠账；不向 reporter 直送，也不读法域支路。一次委派内无法完成的行分别写 `deferred`、`blocked` 或 `capability_debt`，不等待、不自行补写最终结论，也不要求所有业务动作成功。
+完成标准是产物和回执都真实存在、能回读、对象身份一致、每个 `present_*`/`absent` 判定与风险候选都有证据。只向 Lead 返回绝对路径、固定分母统计与欠账；不向 reporter 直送，也不读法域支路。一次委派内无法完成的行分别写 `deferred`、`blocked` 或 `capability_debt`，不等待、不自行补写最终结论，也不要求所有业务动作成功。
 
 ---
